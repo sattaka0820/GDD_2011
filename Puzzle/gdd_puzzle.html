@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ja">
+	<head>
+		<meta charset="utf-8">
+		<title>GDD 2011</title>
+		<link href="bootstrap-1.1.1.css" rel="stylesheet">
+		<style type="text/css">
+			.topbar .fill {background-image: -webkit-linear-gradient(top, #999999, #222222);}
+			#stage, #answer {font-family:"ＭＳ ゴシック",sans-serif;font-size:200%;line-height:25px;text-align:center;}
+			//#stage, #answer {font-family:"Osaka-Mono",sans-serif;font-size:200%;line-height:25px;text-align:center;}
+			#answer label {text-align:left; width:50px;}
+			#answer textarea {width:100%;}
+			#answer .input {margin-left:50px;}
+
+			#problem {margin-top:60px;}
+			#problem label {text-align:left; width:50px;}
+			#problem input {width:100%;}
+			#problem .input {margin-left:50px;}
+        </style>
+	</head>
+	<body>
+
+		<div class="topbar">
+			<div class="fill">
+				<div class="container fixed">
+					<h3><a href="gdd_puzzle.html">GDD 2011 スライドパズル</a></h3>
+				</div>
+			</div>
+		</div>
+
+		<div class="container">
+
+			<div class="well clearfix" id="problem">
+				<p><input type="text" id="input_problem" name="problem" value="3,3,168452=30"></p>
+				<p><a class="btn primary" id="start">Puzzle Create</a></p>
+			</div>
+
+			<div class="row">
+				<div class="span8">
+					<h2>パズル</h2>
+					<p id="info"></p>
+					<div class="well">
+						<div id="stage">
+						</div>
+					</div>
+					<p><strong>操作方法</strong> ↑ → ↓ ←</p>
+			        <p><a class="btn success" id="reset">リセット</a></p>
+				</div>
+				<div class="span8">
+					<h2>完成</h2>
+					<p id="answer_info"></p>
+					<div class="well">
+						<div id="answer">
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="clearfix">
+				<div id="answer">
+					<label for="input_answer">解答</label>
+					<div class="input">
+						<textarea class="xxlarge" id="input_answer" name="answer"></textarea>
+					</div>
+				</div>
+			</div>
+
+		</div>
+
+		<script>
+			function Stage(stage) {
+				this.initialize.apply(this, arguments);
+			}
+			Stage.prototype = {
+				initialize: function(input) {
+					this.input = input;
+					this.w = this.h = 0;
+					this.stage = this.answer_stage = '';
+
+					this._builed();     // ステージ描写
+					this._drawanswer(); // 正解描写
+				},
+				_builed: function() {
+					info = this.input.split(',');
+					if (info.length != 3) {
+						return;
+					}
+					this.w = info[0];
+					this.h = info[1];
+					this.stage = info[2];
+					this.stage_arr = this.stage.split('');
+
+					for (var k in this.stage) {
+						if (this.stage[k] == '0') {
+							this.space_num = k; // 0の初期位置
+						}
+					}
+
+					$('info').innerHTML  = this.w + '×' + this.h + ' ' + this.stage;
+					$('stage').innerHTML = this._draw(this.stage);
+				},
+				_drawanswer: function() {
+					// =の位置を記憶
+					var wall = [];
+					for(i=j=0; i<this.stage_arr.length;i++){
+						if (this.stage_arr[i] == '=') {
+							wall[j] = i;
+							j++;
+						}
+					}
+					var answer_arr = this.stage.replace(/[=0]/g, '').split('').sort().join('');
+
+					// 正解の順序にする
+					var len = answer_arr.length;
+					for (i=l=0; i<len; i++) {
+						for (j in wall) {
+							if (l == wall[j]) {
+								this.answer_stage += '=';
+								l++;
+							}
+						}
+						if (answer_arr[i] != '0') {
+							this.answer_stage += answer_arr[i];
+						}
+						l++;
+					}
+					this.answer_stage += '0'; // 0は最後
+
+					$('answer').innerHTML = this._draw(this.answer_stage);
+					$('answer_info').innerHTML = this.answer_stage;
+				},
+				_draw: function(stage) {
+					var draw_stage = '';
+					var i = 1;
+					for (var k in stage) {
+						if (stage[k] == 0) {
+							draw_stage += '<span style="color:#ff0000">' + stage[k] + '</span>'; // 0を装飾
+						} else {
+							draw_stage += stage[k];
+						}
+
+						// 壁で折り返す
+						if (i % this.w == 0 ) {
+							draw_stage += '<br>';
+						}
+						i++;
+					}
+
+					return draw_stage;
+				},
+				_rebuiled: function() {
+					this.stage = this.stage_arr.join('');
+					$('stage').innerHTML = this._draw(this.stage);
+
+					if (this._isclear() == true) {
+						alert('clear');
+					}
+				},
+
+				up: function() { // ↑
+					var to = this.space_num - this.w;
+					if (this._move(to) == true) {
+						answer('U');
+					}
+					this._rebuiled();
+				},
+				down: function() { // ↓
+					var to = parseInt(this.space_num) + parseInt(this.w);
+					if (this._move(to) == true) {
+						answer('D');
+					}
+					this._rebuiled();
+				},
+				left: function() { // ←
+					var to = parseInt(this.space_num) - 1;
+					if (this._move(to) == true) {
+						answer('L');
+					}
+					this._rebuiled();
+				},
+				right: function() { // →
+					var to = parseInt(this.space_num) + 1;
+					if (this._move(to) == true) {
+						answer('R');
+					}
+					this._rebuiled();
+				},
+				_move: function(to) {
+					// 左の壁判定
+					if (this.space_num % this.w == 0 && this.space_num - to == 1) {
+						return false;
+					}
+					// 右の壁判定
+					if ((parseInt(this.space_num) + 1) % this.w == 0 && to - this.space_num == 1) {
+						return false;
+					}
+					// 壁ではない場合入れ替え
+					var str = this.stage_arr[to];
+					if (str && str != '=') {
+						this.stage_arr[to] = 0;
+						this.stage_arr[this.space_num] = str;
+						this.space_num = to;
+						return true;
+					}
+					return false;
+				},
+				_isclear: function() {
+					if (this.stage == this.answer_stage) {
+						document.onkeydown = null;
+						return true;
+					}
+					return false;
+                },
+                reset: function(e) {
+                    this._builed();
+                    clearanswer();
+                }
+			};
+
+			function $(id) {
+				return document.getElementById(id);
+			}
+			function answer(str) {
+				$('input_answer').innerHTML += str;
+			}
+			function clearanswer(str) {
+				$('input_answer').innerHTML = '';
+			}
+			function v(a) {
+				console.log(a);
+			}
+
+			function init() {
+				clearanswer();
+				var problem = $('input_problem').value.replace(/ /g, '');
+				if (!problem) return;
+				var stage = new Stage(problem);
+				document.onkeydown = function(e) {
+					var keycode = e.which;
+					switch (e.which) {
+						case 37:
+						stage.left();
+						break;
+						case 38:
+						stage.up();
+						break;
+						case 39:
+						stage.right();
+						break;
+						case 40:
+						stage.down();
+						break;
+					}
+				}
+				$('reset').addEventListener('click', stage.reset.bind(stage), false);
+			}
+			$('start').addEventListener('click', init, false);
+
+		</script>
+	</body>
+</html>
